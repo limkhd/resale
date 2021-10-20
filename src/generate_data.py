@@ -1,15 +1,66 @@
 import datetime
 import os
+import numpy as np
 import pandas as pd
 import zipfile
 import requests
 import json
 from tqdm import tqdm
+from abbreviations import abbrev_expansion_dict
 from itertools import product
 from database import SQL3DB
 from ratelimit import limits, RateLimitException, sleep_and_retry
+from scipy.spatial.distance import cdist
 
-from abbreviations import abbrev_expansion_dict
+
+def haversine_np(lon1, lat1, lon2, lat2):
+    """
+    Calculate the great circle distance between two points on the earth (specified in decimal degrees)
+
+    All args must be of equal length.
+
+    """
+    lon1, lat1, lon2, lat2 = map(np.radians, [lon1, lat1, lon2, lat2])
+
+    dlon = lon2 - lon1
+    dlat = lat2 - lat1
+
+    a = np.sin(dlat / 2.0) ** 2 + np.cos(lat1) * np.cos(lat2) * np.sin(dlon / 2.0) ** 2
+
+    c = 2 * np.arcsin(np.sqrt(a))
+    km = 6367 * c
+    return km
+
+
+def add_MRT_distance(df_with_latlong, mrt_data_df):
+    """Adds distance to nearest MRT to each resale flat"""
+
+    # Convert mrt_points and data_points to 2-d tuples
+    mrt_points = [(x, y) for x, y in zip(mrt_data_df["lat"], mrt_data_df["lng"])]
+    data_points = [
+        (x, y)
+        for x, y in zip(df_with_latlong["LATITUDE"], df_with_latlong["LONGITUDE"])
+    ]
+
+    # Get nearest MRT station for each using Euclidean distance of lat/lng coordinates
+    # Approximate is reasonable since SG is so small and on the equator so ordering should not be affected
+    nearest_mrt_stations = cdist(data_points, mrt_points).argmin(axis=1)
+
+    # Copy information into df_with_latlong
+    nearest_mrt_data = mrt_data_df.iloc[nearest_mrt_stations].reset_index(drop=True)
+    df_with_latlong["nearest_station"] = nearest_mrt_data["station_name"]
+    df_with_latlong["nearest_station_lat"] = nearest_mrt_data["lat"]
+    df_with_latlong["nearest_station_lng"] = nearest_mrt_data["lng"]
+
+    # Once we find the closest station, we recalculate the actual haversine distance
+    df_with_latlong["distance_to_mrt"] = haversine_np(
+        df_with_latlong["LONGITUDE"],
+        df_with_latlong["LATITUDE"],
+        df_with_latlong["nearest_station_lng"],
+        df_with_latlong["nearest_station_lat"],
+    )
+
+    return df_with_latlong
 
 
 def month_to_quarter(x):
@@ -252,6 +303,7 @@ def main():
     data_dir = "../data"
     db_path = "%s/postal_codes.db" % data_dir
     missing_onemap_data_path = "%s/missing.txt" % data_dir
+    mrt_data_path = "%s/mrt_lrt_data.csv" % data_dir
 
     # Initialize DB with OneMap schema
     schema = {
@@ -307,6 +359,8 @@ def main():
     df_with_latlong = df_with_latlong.dropna(subset=["POSTAL"]).drop(
         columns="QUERY_ADDRESS"
     )
+    df_with_latlong["LATITUDE"] = df_with_latlong["LATITUDE"].astype(float)
+    df_with_latlong["LONGITUDE"] = df_with_latlong["LONGITUDE"].astype(float)
 
     # Remove problematic addresses (those in errors_df)
     df_with_latlong = df_with_latlong[
@@ -315,6 +369,11 @@ def main():
 
     # Add engineered features
     df_with_latlong = add_engineered_features(df_with_latlong, rpi_df)
+
+    # Add distance to nearest MRT
+    mrt_data_df = pd.read_csv(mrt_data_path)
+    mrt_data_df = mrt_data_df[mrt_data_df["type"] == "MRT"]
+    df_with_latlong = add_MRT_distance(df_with_latlong, mrt_data_df)
 
     # Write augmented dataframes
     out_file = "%s/processed/resales_with_latlong.csv" % data_dir
