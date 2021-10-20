@@ -249,9 +249,9 @@ def storey_range_to_numeric(storey_range):
 
 
 def main():
-    data_dir = "./data"
-    db_path = "./data/postal_codes.db"
-    missing_onemap_data_path = "./data/missing.txt"
+    data_dir = "../data"
+    db_path = "%s/postal_codes.db" % data_dir
+    missing_onemap_data_path = "%s/missing.txt" % data_dir
 
     # Initialize DB with OneMap schema
     schema = {
@@ -271,7 +271,6 @@ def main():
         },
         "primary_key": ["QUERY_ADDRESS"],
     }
-
     db = SQL3DB(db_path, schema)
 
     # Download and extract latest data from data.gov.sg
