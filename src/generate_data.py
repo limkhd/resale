@@ -48,9 +48,11 @@ def add_MRT_distance(df_with_latlong, mrt_data_df):
 
     # Copy information into df_with_latlong
     nearest_mrt_data = mrt_data_df.iloc[nearest_mrt_stations].reset_index(drop=True)
-    df_with_latlong["nearest_station"] = nearest_mrt_data["station_name"]
-    df_with_latlong["nearest_station_lat"] = nearest_mrt_data["lat"]
-    df_with_latlong["nearest_station_lng"] = nearest_mrt_data["lng"]
+    df_with_latlong["nearest_station"] = nearest_mrt_data["station_name"].values
+    df_with_latlong["nearest_station_lat"] = nearest_mrt_data["lat"].values
+    df_with_latlong["nearest_station_lng"] = nearest_mrt_data["lng"].values
+
+    assert df_with_latlong.isnull().any(axis=1).sum() == 0
 
     # Once we find the closest station, we recalculate the actual haversine distance
     df_with_latlong["distance_to_mrt"] = haversine_np(
@@ -101,8 +103,9 @@ def add_engineered_features(df, rpi_df):
     )
     df["mid_band_storey"] = df["storey_range"].map(storey_range_to_numeric)
     df["quarter"] = df["month"].map(month_to_quarter)
-    df = df.merge(rpi_df, on="quarter")
-    df = df.rename(columns={"index": "RPI"})
+
+    # df = df.merge(rpi_df, on="quarter")
+    # df = df.rename(columns={"index": "RPI"})
 
     return df
 
