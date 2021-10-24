@@ -1,3 +1,10 @@
+from abbreviations import abbrev_expansion_dict
+import logging
+from itertools import product
+
+logger = logging.getLogger(__name__)
+
+
 def storey_range_to_numeric(storey_range):
     low, high = storey_range.split(" TO ")
     return float((int(low) + int(high)) / 2)
@@ -30,3 +37,30 @@ def get_unique_addresses_from_df(df_all):
     )
     addresses = addresses["block"] + " " + addresses["street_name"]
     return addresses
+
+
+def expand_address_with_abbreviations(address):
+    """Generate all possible non-abbreviated or abbreviated forms of an address
+
+    Example: "NTH BUONA VISTA RD" ->
+    ["NTH BUONA VISTA RD", "NTH BUONA VISTA ROAD",
+    "NORTH BUONA VISTA RD", "NORTH BUONA VISTA ROAD"]
+
+    This is done by establishing equivalence sets for each abbreviation, then
+    using itertools.product to generate all possibilities
+    """
+
+    try:
+        input_tokens = address.split(" ")
+    except ValueError:
+        logger.info("Error tokenizing %s" % address)
+        return ""
+
+    output_tokens = []
+    for t in input_tokens:
+        output_tokens.append(
+            abbrev_expansion_dict[t] if t in abbrev_expansion_dict else [t]
+        )
+
+    expanded_addresses = [" ".join(p) for p in product(*output_tokens)]
+    return expanded_addresses

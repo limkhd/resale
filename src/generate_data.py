@@ -9,13 +9,12 @@ import zipfile
 import requests
 import json
 from tqdm import tqdm
-from abbreviations import abbrev_expansion_dict
-from itertools import product
 from database import SQL3DB
 from de_utils import (
     month_to_quarter,
     storey_range_to_numeric,
     get_unique_addresses_from_df,
+    expand_address_with_abbreviations,
 )
 from ratelimit import limits, sleep_and_retry
 from scipy.spatial.distance import cdist
@@ -128,24 +127,6 @@ def merge_csv_records(main_data_dir):
     return df_all
 
 
-def expand_address_with_abbreviations(address, abbrev_expansion_dict):
-    try:
-        input_tokens = address.split(" ")
-    except ValueError:
-        logger.info("Error tokenizing %s" % address)
-        return ""
-
-    output_tokens = []
-    for t in input_tokens:
-        if t in abbrev_expansion_dict:
-            output_tokens.append(abbrev_expansion_dict[t])
-        else:
-            output_tokens.append([t])
-
-    expanded_addresses = [" ".join(p) for p in product(*output_tokens)]
-    return expanded_addresses
-
-
 def verify_onemap_addresses(addr_latlong_df):
     """Returns a dataframe of addresses where the query did not match OneMap result."""
 
@@ -158,9 +139,7 @@ def verify_onemap_addresses(addr_latlong_df):
         # Get expanded list of query addresses if there are common abbreviations
         # This is due to inconsistence in abbreviations being used for the same streets
         # from HDB and OneMap
-        expanded_query_addresses = expand_address_with_abbreviations(
-            query_addr, abbrev_expansion_dict
-        )
+        expanded_query_addresses = expand_address_with_abbreviations(query_addr)
         if found_addr not in expanded_query_addresses:
             errors.append({"found": found_addr, "query": expanded_query_addresses[0]})
 
