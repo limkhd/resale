@@ -12,6 +12,11 @@ from tqdm import tqdm
 from abbreviations import abbrev_expansion_dict
 from itertools import product
 from database import SQL3DB
+from de_utils import (
+    month_to_quarter,
+    storey_range_to_numeric,
+    get_unique_addresses_from_df,
+)
 from ratelimit import limits, sleep_and_retry
 from scipy.spatial.distance import cdist
 
@@ -85,35 +90,6 @@ def add_MRT_distance(df_with_latlong, mrt_data_df):
     )
 
     return df_with_latlong
-
-
-def month_to_quarter(x):
-    year, month = x.split("-")
-    mtoq = {
-        "01": "Q1",
-        "02": "Q1",
-        "03": "Q1",
-        "04": "Q2",
-        "05": "Q2",
-        "06": "Q2",
-        "07": "Q3",
-        "08": "Q3",
-        "09": "Q3",
-        "10": "Q4",
-        "11": "Q4",
-        "12": "Q4",
-    }
-    return "-".join((year, mtoq[month]))
-
-
-def get_unique_addresses_from_df(df_all):
-    addresses = (
-        df_all[["block", "street_name"]]
-        .drop_duplicates()
-        .sort_values(["street_name", "block"])
-    )
-    addresses = addresses["block"] + " " + addresses["street_name"]
-    return addresses
 
 
 def add_engineered_features(df):
@@ -220,6 +196,23 @@ def call_onemap_api(query_address):
 
 
 def get_addr_latlong_df(addresses, db, missing_data_path):
+    """Returns dataframe containing addresses, their postal code and longitude obtained from OneMap API
+
+    Parameters
+    ----------
+    addresses : List-like
+        List of addresses to query OneMap API
+    db : SQL3DB
+        SQL3DB instance from database.py to persist obtained data
+    missing_data_path : TODO
+        Path to text file to store addresses that cannot be located in OneMap (too old, demolished etc)
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with query and response columns
+
+    """
     missing = []
 
     # If missing_data_path exists, load list of missing addresses
@@ -296,11 +289,6 @@ def get_resale_transaction_data(main_data_dir, overwrite_data=False):
         with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
             zip_ref.extractall(main_data_dir + "/interim")
         logger.info("Done")
-
-
-def storey_range_to_numeric(storey_range):
-    low, high = storey_range.split(" TO ")
-    return float((int(low) + int(high)) / 2)
 
 
 def main():
