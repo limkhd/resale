@@ -129,7 +129,7 @@ def add_engineered_features(df):
     return df
 
 
-def merge_csv_records(data_dir):
+def merge_csv_records(main_data_dir):
 
     filenames = [
         # "resale-flat-prices-based-on-approval-date-1990-1999.csv",
@@ -141,7 +141,7 @@ def merge_csv_records(data_dir):
 
     df_all = None
     for f in filenames:
-        df = pd.read_csv("%s/%s" % (data_dir, f))
+        df = pd.read_csv("%s/interim/%s" % (main_data_dir, f))
         if df_all is None:
             df_all = df
         else:
@@ -276,24 +276,24 @@ def get_addr_latlong_df(addresses, db, missing_data_path):
     return addr_latlong_df
 
 
-def get_resale_transaction_data(data_dir, overwrite_data=False):
-    if not os.path.exists(data_dir):
-        logger.info("Creating %s" % data_dir)
-        os.makedirs(data_dir)
+def get_resale_transaction_data(main_data_dir, overwrite_data=False):
+    if not os.path.exists(main_data_dir):
+        logger.info("Creating %s" % main_data_dir)
+        os.makedirs(main_data_dir)
 
     main_data_path = (
         "https://storage.data.gov.sg/resale-flat-prices/resale-flat-prices.zip"
     )
-    local_zip_path = "%s/resale-flat-prices.zip" % data_dir
+    local_zip_path = "%s/raw/resale-flat-prices.zip" % main_data_dir
     if not os.path.exists(local_zip_path) or overwrite_data is True:
         logger.info("Downloading file")
         download_url(main_data_path, local_zip_path)
 
     csv_filename = "resale-flat-prices-based-on-approval-date-2000-feb-2012.csv"
-    if not os.path.exists("%s/%s" % (data_dir, csv_filename)) or overwrite_data is True:
+    if not os.path.exists("%s/%s" % (main_data_dir, csv_filename)) or overwrite_data is True:
         logger.info("Unzipping files")
         with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
-            zip_ref.extractall(data_dir)
+            zip_ref.extractall(main_data_dir + '/interim')
         logger.info("Done")
 
 
@@ -309,13 +309,16 @@ def main():
         params = yaml.safe_load(f)
 
     de_options = params["data_engineering_options"]
-    data_dir = de_options["data_dir"]
-    db_path = "%s/%s" % (data_dir, de_options["db_name"])
+
+    main_data_dir = de_options["data_dir"]
+
+
+    db_path = "%s/%s" % (main_data_dir, de_options["db_name"])
     missing_onemap_data_path = "%s/%s" % (
-        data_dir,
+        main_data_dir,
         de_options["missing_onemap_data_filename"],
     )
-    mrt_data_path = "%s/%s" % (data_dir, de_options["mrt_data_filename"])
+    mrt_data_path = "%s/%s" % (main_data_dir, de_options["mrt_data_filename"])
 
     r = de_options["bala_discount_factor"]
 
@@ -325,11 +328,11 @@ def main():
     # Download and extract latest data from data.gov.sg
     logger.info("Downloading latest data from data.gov.sg")
     overwrite_data = False
-    get_resale_transaction_data(data_dir, overwrite_data=overwrite_data)
+    get_resale_transaction_data(main_data_dir, overwrite_data=overwrite_data)
 
     # Get combined dataframe from multiple raw files
     logger.info("Merging all files into one")
-    df_all = merge_csv_records(data_dir)
+    df_all = merge_csv_records(main_data_dir)
 
     logger.info("Total transactions is %d" % len(df_all))
 
@@ -383,7 +386,7 @@ def main():
     df_with_latlong = add_MRT_distance(df_with_latlong, mrt_data_df)
 
     # Write augmented dataframes
-    out_file = "%s/processed/resales_with_latlong.csv" % data_dir
+    out_file = "%s/processed/resales_with_latlong.csv" % main_data_dir
     if not os.path.exists(os.path.dirname(out_file)):
         os.makedirs(os.path.dirname(out_file))
     logger.info("Saving to %s" % out_file)

@@ -1,9 +1,9 @@
 
 data_engineering_options:
   data_dir: ../data
-  db_name: postal_codes.db
-  missing_onemap_data_filename: missing.txt
-  mrt_data_filename: mrt_lrt_data.csv
+  db_name: external/postal_codes.db
+  missing_onemap_data_filename: external/missing.txt
+  mrt_data_filename: raw/mrt_lrt_data.csv
   bala_discount_factor: 0.035
   onemap_db_schema:
     columns:
