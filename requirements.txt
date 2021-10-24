@@ -13,7 +13,9 @@ colorama==0.4.4
 idna==3.3
     # via requests
 numpy==1.19.5
-    # via pandas
+    # via
+    #   pandas
+    #   scipy
 pandas==1.1.5
     # via -r requirements.in
 python-dateutil==2.8.2
@@ -25,6 +27,8 @@ pyyaml==6.0
 ratelimit==2.2.1
     # via -r requirements.in
 requests==2.26.0
+    # via -r requirements.in
+scipy==1.5.4
     # via -r requirements.in
 six==1.16.0
     # via python-dateutil
