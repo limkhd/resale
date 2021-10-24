@@ -310,7 +310,7 @@ def main():
 
     de_options = params["data_engineering_options"]
 
-    main_data_dir = de_options["data_dir"]
+    main_data_dir = de_options["main_data_dir"]
 
 
     db_path = "%s/%s" % (main_data_dir, de_options["db_name"])
