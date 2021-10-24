@@ -18,21 +18,41 @@ class SQL3DB(object):
         self.db_path = db_path
         dir_name, _ = (os.path.dirname(db_path), os.path.basename(db_path))
         if not os.path.exists(dir_name):
-            print("Creating %s" % dir_name)
+            logger.info("Creating %s" % dir_name)
             os.makedirs(dir_name)
 
         self.primary_key = schema["primary_key"]
 
+        table_in_db = True
+
         if not os.path.exists(db_path):
-            print("%s does not exist, creating new database" % db_path)
-            conn = sql3.connect("%s" % db_path)
+            # DB file doesn't exist
+            logger.info("%s does not exist, creating new database" % db_path)
+            table_in_db = False
 
-            c = conn.cursor()
-            sql = self.build_initial_sql_query_from_schema(self.schema)
-            c.execute(sql)
-            conn.commit()
-            conn.close()
+        else:
+            # DB file exists but table was not created
+            with sql3.connect("%s" % db_path) as conn:
+                c = conn.cursor()
+                sql = "SELECT name FROM sqlite_master WHERE type='table' AND name='database'"
 
+                try:
+                    res = c.execute(sql)
+                    if res.fetchone() is None:
+                        table_in_db = False
+                except:
+                    logger.error("Error in SQL transaction")
+                    logger.error(sys.exc_info())
+                    sys.exit(1)
+
+        if not table_in_db:
+            logger.info("Creating 'database' table in sqlite DB")
+            with sql3.connect("%s" % db_path) as conn:
+                c = conn.cursor()
+                sql = self.build_initial_sql_query_from_schema(self.schema)
+                c.execute(sql)
+
+        # Get all entries in pandas DataFrame
         entries_df = self.read_df_from_db(self.db_path)
         logger.info(
             "%d entries currently in database table in %s" % (len(entries_df), db_path)
@@ -62,8 +82,8 @@ class SQL3DB(object):
                 res = c.execute(sql, primary_key_values)
                 is_in_db = res.fetchone()[0] == 1
             except:
-                print("Error in SQL transaction")
-                print(sys.exc_info())
+                logger.error("Error in SQL transaction")
+                logger.error(sys.exc_info())
                 sys.exit(1)
 
         return is_in_db
