@@ -3,10 +3,13 @@
 By Daryl Lim
 """
 
+import logging
 import os
 import sys
 import pandas
 import sqlite3 as sql3
+
+logger = logging.getLogger(__name__)
 
 
 class SQL3DB(object):
@@ -31,7 +34,7 @@ class SQL3DB(object):
             conn.close()
 
         entries_df = self.read_df_from_db(self.db_path)
-        print(
+        logger.info(
             "%d entries currently in database table in %s" % (len(entries_df), db_path)
         )
 

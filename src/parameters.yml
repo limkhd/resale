@@ -1,0 +1,22 @@
+
+data_engineering_options:
+  data_dir: ../data
+  db_name: postal_codes.db
+  missing_onemap_data_filename: missing.txt
+  mrt_data_filename: mrt_lrt_data.csv
+  bala_discount_factor: 0.035
+  onemap_db_schema:
+    columns:
+      SEARCHVAL: TEXT,
+      BLK_NO: TEXT,
+      ROAD_NAME: TEXT,
+      BUILDING: TEXT,
+      ADDRESS: TEXT,
+      POSTAL: TEXT,
+      X: TEXT,
+      Y: TEXT,
+      LATITUDE: TEXT,
+      LONGITUDE: TEXT,
+      LONGTITUDE: TEXT,
+      QUERY_ADDRESS: TEXT,
+    primary_key: ["QUERY_ADDRESS"]
