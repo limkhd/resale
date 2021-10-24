@@ -171,8 +171,7 @@ def expand_address_with_abbreviations(address, abbrev_expansion_dict):
 
 
 def verify_onemap_addresses(addr_latlong_df):
-    """Returns a dataframe of addresses where the query did not match OneMap result.
-    """
+    """Returns a dataframe of addresses where the query did not match OneMap result."""
 
     found_addresses = addr_latlong_df["BLK_NO"] + " " + addr_latlong_df["ROAD_NAME"]
     query_addresses = addr_latlong_df["QUERY_ADDRESS"]
@@ -194,8 +193,7 @@ def verify_onemap_addresses(addr_latlong_df):
 
 
 def download_url(url, save_path, chunk_size=1024):
-    """Downloads url to save_path.
-    """
+    """Downloads url to save_path."""
 
     r = requests.get(url, stream=True)
     total_size_in_bytes = int(r.headers.get("content-length", 0))
@@ -290,10 +288,13 @@ def get_resale_transaction_data(main_data_dir, overwrite_data=False):
         download_url(main_data_path, local_zip_path)
 
     csv_filename = "resale-flat-prices-based-on-approval-date-2000-feb-2012.csv"
-    if not os.path.exists("%s/%s" % (main_data_dir, csv_filename)) or overwrite_data is True:
+    if (
+        not os.path.exists("%s/%s" % (main_data_dir, csv_filename))
+        or overwrite_data is True
+    ):
         logger.info("Unzipping files")
         with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
-            zip_ref.extractall(main_data_dir + '/interim')
+            zip_ref.extractall(main_data_dir + "/interim")
         logger.info("Done")
 
 
@@ -309,21 +310,7 @@ def main():
         params = yaml.safe_load(f)
 
     de_options = params["data_engineering_options"]
-
     main_data_dir = de_options["main_data_dir"]
-
-
-    db_path = "%s/%s" % (main_data_dir, de_options["db_name"])
-    missing_onemap_data_path = "%s/%s" % (
-        main_data_dir,
-        de_options["missing_onemap_data_filename"],
-    )
-    mrt_data_path = "%s/%s" % (main_data_dir, de_options["mrt_data_filename"])
-
-    r = de_options["bala_discount_factor"]
-
-    # Initialize DB to store OneMap API responses
-    db = SQL3DB(db_path, de_options["onemap_db_schema"])
 
     # Download and extract latest data from data.gov.sg
     logger.info("Downloading latest data from data.gov.sg")
@@ -338,6 +325,12 @@ def main():
 
     # Get lat/long/postal from OneMap
     logger.info("Getting postal codes and lat/long from OneMap API")
+    db_path = "%s/%s" % (main_data_dir, de_options["db_name"])
+    missing_onemap_data_path = "%s/%s" % (
+        main_data_dir,
+        de_options["missing_onemap_data_filename"],
+    )
+    db = SQL3DB(db_path, de_options["onemap_db_schema"])
     unique_addresses = get_unique_addresses_from_df(df_all)
     addr_latlong_df = get_addr_latlong_df(
         unique_addresses, db, missing_onemap_data_path
@@ -371,6 +364,7 @@ def main():
 
     # align with Bala's table
     logger.info("Adding lease depreciation factors")
+    r = de_options["bala_discount_factor"]
     tenure_disc_values, remaining_lease_disc_values = get_depreciation_tables(r)
     df_with_latlong["lease_depreciation_factor"] = df_with_latlong["rem_lease"].map(
         lambda x: remaining_lease_disc_values[x]
@@ -381,6 +375,7 @@ def main():
 
     # Add distance to nearest MRT
     logger.info("Adding distance to nearest MRT")
+    mrt_data_path = "%s/%s" % (main_data_dir, de_options["mrt_data_filename"])
     mrt_data_df = pd.read_csv(mrt_data_path)
     mrt_data_df = mrt_data_df[mrt_data_df["type"] == "MRT"]
     df_with_latlong = add_MRT_distance(df_with_latlong, mrt_data_df)
