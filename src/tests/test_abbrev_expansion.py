@@ -1,6 +1,6 @@
 import math
 import pytest
-from de_utils import expand_address_with_abbreviations
+from resale.de_utils import expand_address_with_abbreviations
 
 
 @pytest.mark.parametrize(

@@ -4,6 +4,8 @@
 #
 #    pip-compile
 #
+alembic==1.4.1
+    # via mlflow
 attrs==21.2.0
     # via pytest
 backports.entry-points-selectable==1.1.0
@@ -17,46 +19,87 @@ charset-normalizer==2.0.7
 click==8.0.3
     # via
     #   black
+    #   databricks-cli
+    #   flask
+    #   mlflow
     #   pip-tools
+cloudpickle==2.0.0
+    # via mlflow
 cycler==0.10.0
     # via matplotlib
+databricks-cli==0.16.2
+    # via mlflow
 distlib==0.3.3
     # via virtualenv
+docker==5.0.3
+    # via mlflow
+entrypoints==0.3
+    # via mlflow
 filelock==3.3.1
     # via
     #   tox
     #   virtualenv
 flake8==4.0.1
     # via -r requirements.in
+flask==2.0.2
+    # via
+    #   mlflow
+    #   prometheus-flask-exporter
+gitdb==4.0.9
+    # via gitpython
+gitpython==3.1.24
+    # via mlflow
+greenlet==1.1.2
+    # via sqlalchemy
+gunicorn==20.1.0
+    # via mlflow
 idna==3.3
     # via requests
+importlib-metadata==4.8.1
+    # via mlflow
 iniconfig==1.1.1
     # via pytest
+itsdangerous==2.0.1
+    # via flask
+jinja2==3.0.2
+    # via flask
 joblib==1.1.0
     # via scikit-learn
 kiwisolver==1.3.1
     # via matplotlib
 lightgbm==3.2.1
     # via -r requirements.in
+mako==1.1.5
+    # via alembic
+markupsafe==2.0.1
+    # via
+    #   jinja2
+    #   mako
 matplotlib==3.3.4
     # via -r requirements.in
 mccabe==0.6.1
     # via flake8
+mlflow==1.21.0
+    # via -r requirements.in
 mypy-extensions==0.4.3
     # via black
 numpy==1.19.5
     # via
     #   lightgbm
     #   matplotlib
+    #   mlflow
     #   pandas
     #   scikit-learn
     #   scipy
 packaging==21.0
     # via
+    #   mlflow
     #   pytest
     #   tox
 pandas==1.1.5
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   mlflow
 pathspec==0.9.0
     # via black
 pep517==0.12.0
@@ -73,6 +116,12 @@ pluggy==1.0.0
     # via
     #   pytest
     #   tox
+prometheus-client==0.11.0
+    # via prometheus-flask-exporter
+prometheus-flask-exporter==0.18.4
+    # via mlflow
+protobuf==3.19.1
+    # via mlflow
 py==1.10.0
     # via
     #   pytest
@@ -89,18 +138,31 @@ pytest==6.2.5
     # via -r requirements.in
 python-dateutil==2.8.2
     # via
+    #   alembic
     #   matplotlib
     #   pandas
+python-editor==1.0.4
+    # via alembic
 pytz==2021.3
-    # via pandas
+    # via
+    #   mlflow
+    #   pandas
 pyyaml==6.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   mlflow
+querystring-parser==1.2.4
+    # via mlflow
 ratelimit==2.2.1
     # via -r requirements.in
 regex==2021.10.23
     # via black
 requests==2.26.0
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   databricks-cli
+    #   docker
+    #   mlflow
 scikit-learn==0.24.2
     # via lightgbm
 scipy==1.5.4
@@ -111,9 +173,21 @@ scipy==1.5.4
 six==1.16.0
     # via
     #   cycler
+    #   databricks-cli
     #   python-dateutil
+    #   querystring-parser
     #   tox
     #   virtualenv
+smmap==5.0.0
+    # via gitdb
+sqlalchemy==1.4.26
+    # via
+    #   alembic
+    #   mlflow
+sqlparse==0.4.2
+    # via mlflow
+tabulate==0.8.9
+    # via databricks-cli
 threadpoolctl==3.0.0
     # via scikit-learn
 toml==0.10.2
@@ -129,15 +203,23 @@ tox==3.24.4
 tqdm==4.62.3
     # via -r requirements.in
 typing-extensions==3.10.0.2
-    # via black
+    # via
+    #   black
+    #   gitpython
 urllib3==1.26.7
     # via requests
 virtualenv==20.9.0
     # via tox
+websocket-client==1.2.1
+    # via docker
+werkzeug==2.0.2
+    # via flask
 wheel==0.37.0
     # via
     #   lightgbm
     #   pip-tools
+zipp==3.6.0
+    # via importlib-metadata
 
 # The following packages are considered to be unsafe in a requirements file:
 # pip
