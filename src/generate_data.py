@@ -9,8 +9,8 @@ import zipfile
 import requests
 import json
 from tqdm import tqdm
-from database import SQL3DB
-from de_utils import (
+from resale.database import SQL3DB
+from resale.de_utils import (
     month_to_quarter,
     storey_range_to_numeric,
     get_unique_addresses_from_df,

@@ -144,6 +144,18 @@ def main():
         "reg_lambda": [0.01],
     }
 
+    best_params_default = {
+        "learning_rate": 0.5,
+        "n_estimators": 3200,
+        "num_leaves": 8,
+        "max_depth": 16,
+        "colsample_bytree": 0.8,
+        "subsample": 0.5,
+        "min_data_in_leaf": 100,
+        "reg_alpha": 0.00001,
+        "reg_lambda": 0.01,
+    }
+
     regressor = lgb.LGBMRegressor()
 
     # Search params
@@ -151,7 +163,10 @@ def main():
         best_params = get_best_params(tuningparams, regressor, X, y, n_splits=2)
         pd.to_pickle(best_params, "best_params.pickle")
     else:
-        best_params = pd.read_pickle("best_params.pickle")
+        if os.path.exists("best_params.pickle"):
+            best_params = pd.read_pickle("best_params.pickle")
+        else:
+            best_params = best_params_default
 
     print(best_params)
     best_regressor = lgb.LGBMRegressor(**best_params)
@@ -198,9 +213,6 @@ def main():
         pred_columns = ["resale_price", "predicted"]
 
         df_worst_v2 = df_worst[core_columns + pred_columns]
-        import pdb
-
-        pdb.set_trace()
         # print((ypred_worst - ytest_worst)[:10])
 
     print(
