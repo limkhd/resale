@@ -14,7 +14,7 @@ This will perform the following:
 
 4. Add additional engineered features
 
-5. Modeling (TBD)
+5. Modeling with simple regression model using LightGBM and logging to MLFlow
 
 ## Installation
 
@@ -32,6 +32,12 @@ If you have Miniconda/Anaconda installed and a virtual environment set up, you c
 
 1. Change to the project folder and run `pip install -r requirements.txt`
 
-### Demo
+### Run tests
 
-Change to `src` subfolder and run `python generate_data.py parameters.yml`
+1. In the project folder run `pytest`.
+
+## Demo
+
+1. In `src` subfolder run `python generate_data.py parameters.yml`. This will generate an intermediate CSV file with augmented features.
+2. In `src` subfolder run `python main_regression.py parameters.yml`. This will log the model run, parameters and results to MLFlow.
+3. The existing experimental runs can be viewed by running ` mlflow ui --backend-store-uri sqlite:///../mlflow/mlruns.db` from the `src` directory.
