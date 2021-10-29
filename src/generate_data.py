@@ -9,8 +9,8 @@ import zipfile
 import requests
 import json
 from tqdm import tqdm
-from database import SQL3DB
-from de_utils import (
+from resale.database import SQL3DB
+from resale.de_utils import (
     month_to_quarter,
     storey_range_to_numeric,
     get_unique_addresses_from_df,
@@ -159,6 +159,33 @@ def download_url(url, save_path, chunk_size=1024):
             fd.write(chunk)
 
 
+def get_RPI_data(data_dir, overwrite_data=False):
+    if not os.path.exists(data_dir):
+        logger.info("Creating %s" % data_dir)
+        os.makedirs(data_dir)
+
+    main_data_path = (
+        "https://storage.data.gov.sg/hdb-resale-price-index/hdb-resale-price-index.zip"
+    )
+    local_zip_path = "%s/hdb-resale-price-index.zip" % data_dir
+    if not os.path.exists(local_zip_path) or overwrite_data is True:
+        logger.info("Downloading resale price index file")
+        download_url(main_data_path, local_zip_path)
+        # wget.download(main_data_path, data_dir)
+
+    csv_filename = (
+        "housing-and-development-board-resale-price-index-1q2009-100-quarterly.csv"
+    )
+    if not os.path.exists("%s/%s" % (data_dir, csv_filename)) or overwrite_data is True:
+        logger.info("Unzipping files")
+        with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
+            zip_ref.extractall(data_dir)
+        logger.info("Done")
+
+    rpi_df = pd.read_csv("%s/%s" % (data_dir, csv_filename))
+    return rpi_df
+
+
 @sleep_and_retry
 @limits(calls=200, period=60)
 def call_onemap_api(query_address):
@@ -246,28 +273,29 @@ def get_addr_latlong_df(addresses, db, missing_data_path):
     return addr_latlong_df
 
 
-def get_resale_transaction_data(main_data_dir, overwrite_data=False):
-    if not os.path.exists(main_data_dir):
-        logger.info("Creating %s" % main_data_dir)
-        os.makedirs(main_data_dir)
+def download_resale_transaction_data(data_dir, overwrite_data=False):
+    if not os.path.exists(data_dir):
+        logger.info("Creating %s" % data_dir)
+        os.makedirs(data_dir)
 
-    main_data_path = (
-        "https://storage.data.gov.sg/resale-flat-prices/resale-flat-prices.zip"
-    )
-    local_zip_path = "%s/raw/resale-flat-prices.zip" % main_data_dir
+    data_path = "https://storage.data.gov.sg/resale-flat-prices/resale-flat-prices.zip"
+    local_zip_path = "%s/raw/resale-flat-prices.zip" % data_dir
     if not os.path.exists(local_zip_path) or overwrite_data is True:
         logger.info("Downloading file")
-        download_url(main_data_path, local_zip_path)
+        download_url(data_path, local_zip_path)
 
     csv_filename = "resale-flat-prices-based-on-approval-date-2000-feb-2012.csv"
-    if (
-        not os.path.exists("%s/%s" % (main_data_dir, csv_filename))
-        or overwrite_data is True
-    ):
+    if not os.path.exists("%s/%s" % (data_dir, csv_filename)) or overwrite_data is True:
         logger.info("Unzipping files")
         with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
-            zip_ref.extractall(main_data_dir + "/interim")
+            zip_ref.extractall(data_dir + "/interim")
         logger.info("Done")
+    pass
+
+
+def get_resale_transaction_data(data_dir, overwrite_data=False):
+    download_resale_transaction_data(data_dir, overwrite_data=overwrite_data)
+    return merge_csv_records(data_dir)
 
 
 def main():
@@ -282,11 +310,9 @@ def main():
     # Download and extract latest data from data.gov.sg
     logger.info("Downloading latest data from data.gov.sg")
     overwrite_data = False
-    get_resale_transaction_data(main_data_dir, overwrite_data=overwrite_data)
 
-    # Get combined dataframe from multiple raw files
-    logger.info("Merging all files into one")
-    df_all = merge_csv_records(main_data_dir)
+    df_all = get_resale_transaction_data(main_data_dir, overwrite_data=overwrite_data)
+    rpi_df = get_RPI_data(main_data_dir, overwrite_data=overwrite_data)
 
     logger.info("Total transactions is %d" % len(df_all))
 
@@ -347,6 +373,15 @@ def main():
     mrt_data_df = mrt_data_df[mrt_data_df["type"] == "MRT"]
     df_with_latlong = add_MRT_distance(df_with_latlong, mrt_data_df)
 
+    # Adjust by RPI and filter out flats with no RPI informatino
+    df_with_latlong["quarter"] = df_with_latlong["month"].map(month_to_quarter)
+    df_with_latlong = df_with_latlong.merge(rpi_df, on="quarter")
+    df_with_latlong = df_with_latlong.rename(columns={"index": "RPI"})
+    df_with_latlong = df_with_latlong.dropna().sort_index().reset_index(drop=True)
+
+    df_with_latlong["adjusted_resale_price"] = (
+        df_with_latlong["resale_price"] / df_with_latlong["RPI"] * 100
+    )
     # Write augmented dataframes
     out_file = "%s/processed/resales_with_latlong.csv" % main_data_dir
     if not os.path.exists(os.path.dirname(out_file)):

@@ -1,4 +1,4 @@
-from abbreviations import abbrev_expansion_dict
+from .abbreviations import abbrev_expansion_dict
 import logging
 from itertools import product
 
