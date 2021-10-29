@@ -1,18 +1,28 @@
+import sys
 import logging
 import os
 from copy import deepcopy
+from resale.preprocessor import Preprocessor
 import pandas as pd
 import numpy
 import matplotlib.pyplot as plt
 import lightgbm as lgb
 import sklearn.model_selection as ms
-from sklearn.preprocessing import OrdinalEncoder
 import sklearn.metrics as m
+from resale.utils import read_yml
+
+log_format = (
+    "[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s"
+)
+date_format = "%H:%M:%S"
+logging.basicConfig(
+    stream=sys.stdout, level=logging.INFO, format=log_format, datefmt=date_format
+)
 
 logger = logging.getLogger(__name__)
 
 
-def get_best_params(tuningparams, regressor, X, y, n_splits=5):
+def get_best_params(tuningparams, regressor, X, y, n_splits=3):
     # Perform hyperparameter optimization on one parameter at at time, like coordinate descent
     best_params = {}
     for p in tuningparams:
@@ -31,53 +41,14 @@ def get_best_params(tuningparams, regressor, X, y, n_splits=5):
     return best_params
 
 
-def do_feature_engineering(df, categorical_columns, train=True, ordinal_encs=None):
-
-    df_out = df.copy()
-
-    if train:
-        ordinal_encs_ = {}
-    else:
-        ordinal_encs_ = ordinal_encs
-
-    for c in categorical_columns:
-        if train:
-            enc = OrdinalEncoder()
-            df_out[c] = enc.fit_transform(df_out[c].values.reshape(-1, 1)).astype(int)
-            ordinal_encs_[c] = enc
-            df_out[c] = df_out[c].astype("category")
-        else:
-            ordinal_encs_ = ordinal_encs
-            df_out[c] = (
-                ordinal_encs_[c].transform(df_out[c].values.reshape(-1, 1)).astype(int)
-            )
-            df_out[c] = df_out[c].astype("category")
-
-    cols_to_drop = [
-        "street_name",
-        "block",
-        "month",
-        "storey_range",
-        "lease_commence_date",
-        "rem_lease_at_sale",
-        "quarter",
-        "address",
-        "POSTAL",
-        "LATITUDE",
-        "LONGITUDE",
-        "nearest_station",
-        "nearest_station_lat",
-        "nearest_station_lng",
-        "flat_model",
-        "sale_year",
-    ]
-    df_out = df_out.drop(columns=cols_to_drop)
-    return df_out, ordinal_encs_
-
-
 def main():
-    # use_cv = True
-    use_cv = False
+    params = read_yml(sys.argv[1])
+
+    modeling_options = params["modeling_options"]
+    preprocessing_options = params["preprocessing_options"]
+    split_options = params["split_options"]
+
+    numpy.random.seed(0)
 
     in_file = "../data/processed/resales_with_latlong.csv"
 
@@ -87,39 +58,28 @@ def main():
     df_raw = pd.read_csv(in_file)
     logger.info("Total resale transactions: %d" % len(df_raw))
 
-    numpy.random.seed(0)
+    df = df_raw.sort_values(["month", "town", "street_name"]).copy()
 
-    df = df_raw.sort_values(["month", "town", "street_name"])
+    test_size = split_options["test_size"]
+    valid_size = split_options["valid_size"]
 
-    df = df[:-50000]
-    logger.info("Most recent transactions:")
-    print(df.tail(10))
+    # Create test split
+    df_test = df.iloc[-test_size:]
+    df = df.iloc[:-test_size]
 
-    df_test = df.iloc[-50000:]
-    df = df.iloc[:-50000]
+    # Create validation split
+    df_val = df.iloc[-valid_size:]
+    df = df.iloc[:-valid_size]
 
-    X = df.drop(columns="resale_price")
-    y = df["resale_price"].values
-    Xtest = df_test.drop(columns="resale_price")
-    ytest = df_test["resale_price"].values
+    p = Preprocessor(**preprocessing_options)
+    X, y = p.generate_model_inputs(df, train=True)
+    Xtest, ytest = p.generate_model_inputs(df_test)
+    Xval, yval = p.generate_model_inputs(df_val)
 
-    categorical_columns = ["town", "flat_type", "flat_model"]
-    X, encoders = do_feature_engineering(X, categorical_columns, train=True)
-    Xtest, _ = do_feature_engineering(
-        Xtest, categorical_columns, train=False, ordinal_encs=encoders
-    )
-
-    logger.info("Train head/tail:")
-    print(X.head(3))
-    print(X.tail(3))
-    # df = df.iloc[:-20000]
-    # df = df_raw.sample(100000)
-    logger.info("Test head/tail:")
-    print(Xtest.head(3))
-    print(Xtest.tail(3))
-
-    X = X.iloc[-50000:]
-    y = y[-50000:]
+    # Use subset of data for training
+    training_subset_size = split_options["training_subset_size"]
+    X = X.iloc[-training_subset_size:]
+    y = y[-training_subset_size:]
 
     tuningparams = {
         "learning_rate": [1, 0.5, 0.1, 0.05, 0.01, 0.001],
@@ -132,94 +92,38 @@ def main():
         "reg_lambda": [0.0001, 0.001, 0.01, 0.1, 1, 10],
     }
 
-    tuningparams = {
-        "learning_rate": [0.5],
-        "n_estimators": [3200],
-        "num_leaves": [8],
-        "max_depth": [16],
-        "colsample_bytree": [0.8, 1],
-        "subsample": [0.5, 0.25],
-        "min_data_in_leaf": [100],
-        "reg_alpha": [0.00001],
-        "reg_lambda": [0.01],
-    }
-
-    best_params_default = {
-        "learning_rate": 0.5,
-        "n_estimators": 3200,
-        "num_leaves": 8,
-        "max_depth": 16,
-        "colsample_bytree": 0.8,
-        "subsample": 0.5,
-        "min_data_in_leaf": 100,
-        "reg_alpha": 0.00001,
-        "reg_lambda": 0.01,
-    }
-
     regressor = lgb.LGBMRegressor()
 
     # Search params
+    use_cv = modeling_options["use_cv"]
     if use_cv:
         best_params = get_best_params(tuningparams, regressor, X, y, n_splits=2)
         pd.to_pickle(best_params, "best_params.pickle")
     else:
         if os.path.exists("best_params.pickle"):
+            logger.info("Reading from best_params.pickle")
             best_params = pd.read_pickle("best_params.pickle")
         else:
-            best_params = best_params_default
+            logger.info("Using default best parameters")
+            best_params = modeling_options["best_params_default"]
 
-    print(best_params)
+    logger.info(best_params)
     best_regressor = lgb.LGBMRegressor(**best_params)
-    best_regressor.fit(X, y, eval_set=[(X, y), (Xtest, ytest)], verbose=800)
+    best_regressor.fit(
+        X, y, eval_set=[(X, y), (Xval, yval)], verbose=800, early_stopping_rounds=2000
+    )
     # lgb.plot_importance(best_regressor)
     # lgb.plot_metric(best_regressor)
-    # lgb.plot_tree(best_regressor, tree_index=1)
-    plt.show()
+    # plt.show()
 
     ypred = best_regressor.predict(Xtest)
     ypred_train = best_regressor.predict(X)
 
-    ypred_res = ypred - ytest
-
-    # Get flat indices with highest residuals
-    # limit = 500
-    flats_sorted_by_residual = numpy.argsort(ypred_res)
-
-    worst_predictions = {}
-    worst_predictions["undervalued"] = flats_sorted_by_residual[::-1]
-    worst_predictions["overvalued"] = flats_sorted_by_residual
-
-    for key in ["undervalued", "overvalued"]:
-        Xtest_worst = Xtest.iloc[worst_predictions[key]]
-        ypred_worst = ypred[worst_predictions[key]]
-        ytest_worst = ytest[worst_predictions[key]]
-
-        df_worst = df_raw.iloc[Xtest_worst.index].copy()
-
-        df_worst["predicted"] = ypred_worst
-        df_worst["predicted"] = df_worst["predicted"].astype(int)
-
-        core_columns = [
-            "month",
-            "town",
-            "flat_type",
-            "block",
-            "street_name",
-            "storey_range",
-            "rem_lease",
-            "nearest_station",
-            "distance_to_mrt",
-        ]
-        pred_columns = ["resale_price", "predicted"]
-
-        df_worst_v2 = df_worst[core_columns + pred_columns]
-        # print((ypred_worst - ytest_worst)[:10])
-
-    print(
+    logger.info(
         "Train MAPE is %.3f%%"
         % (m.mean_absolute_percentage_error(y, ypred_train) * 100)
     )
-    print(
+    logger.info(
         "Test MAPE is %.3f%%" % (m.mean_absolute_percentage_error(ytest, ypred) * 100)
     )
 

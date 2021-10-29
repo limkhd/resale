@@ -20,3 +20,38 @@ data_engineering_options:
       LONGTITUDE: TEXT
       QUERY_ADDRESS: TEXT
     primary_key: ["QUERY_ADDRESS"]
+
+
+split_options:
+  test_size: 50000
+  valid_size: 25000
+  training_subset_size: 50000
+
+preprocessing_options:
+  label_column: adjusted_resale_price
+  categorical_columns:
+    - town
+    - flat_type
+    - flat_model
+  cols_to_keep:
+    - town
+    - flat_type
+    - flat_model
+    - floor_area_sqm
+    - rem_lease
+    - mid_band_storey
+    - lease_depreciation_factor
+    - distance_to_mrt
+
+modeling_options:
+  use_cv: False
+  best_params_default:
+    learning_rate: 0.5
+    n_estimators: 6400
+    num_leaves: 8
+    max_depth: 16
+    colsample_bytree: 0.8
+    subsample: 0.5
+    min_data_in_leaf: 100
+    reg_alpha: 0.00001
+    reg_lambda: 0.01
