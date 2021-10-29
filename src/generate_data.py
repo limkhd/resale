@@ -299,6 +299,8 @@ def get_resale_transaction_data(data_dir, overwrite_data=False):
 
 
 def main():
+    if len(sys.argv) < 2:
+        raise ValueError("Must pass in parameter YAML file as sys.argv[1]")
     parameters_file = sys.argv[1]
 
     with open(parameters_file, "r") as f:

@@ -45,9 +45,10 @@ preprocessing_options:
 
 modeling_options:
   use_cv: False
+  mlflow_db_path: ../mlflow/mlruns.db
   best_params_default:
     learning_rate: 0.5
-    n_estimators: 6400
+    n_estimators: 3200
     num_leaves: 8
     max_depth: 16
     colsample_bytree: 0.8
@@ -55,3 +56,10 @@ modeling_options:
     min_data_in_leaf: 100
     reg_alpha: 0.00001
     reg_lambda: 0.01
+
+evaluation_options:
+  metrics_to_measure:
+    - name: MAPE
+      function: sklearn.metrics.mean_absolute_percentage_error
+    - name: MSE
+      function: sklearn.metrics.mean_squared_error
